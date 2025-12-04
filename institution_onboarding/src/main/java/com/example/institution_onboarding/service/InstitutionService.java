@@ -8,6 +8,7 @@ import com.example.institution_onboarding.repository.*;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,6 +26,7 @@ public class InstitutionService {
     private final InstitutionCourseRepository courseRepository;
     private final InstitutionDocumentRepository documentRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -32,6 +34,11 @@ public class InstitutionService {
     // ------------------------------------------------------------
     public Institution register(InstitutionRequest request) {
 
+        // validate password (server-side)
+        String pw = request.getPassword();
+        if (pw == null || !pw.matches("^(?=.*[A-Z])(?=.*\\d).{8,}$")) {
+            throw new RuntimeException("Password must be at least 8 chars, contain one uppercase and one digit.");
+        }
         // Auto-generate registration number
         String regNumber = "INST-" + System.currentTimeMillis();
 
@@ -51,7 +58,7 @@ public class InstitutionService {
         // Create login credentials
         User user = User.builder()
                 .username(request.getEmail())
-                .password(request.getPhone())
+                .password(passwordEncoder.encode(pw))
                 .role(UserRole.INSTITUTION)
                 .build();
 
@@ -149,6 +156,15 @@ public class InstitutionService {
 
         return courseRepository.save(course);
     }
+
+    //method to fetch the courses enrolled, from the frontend
+    public List<InstitutionCourse> getCourses(Long institutionId) {
+        Institution inst = institutionRepository.findById(institutionId)
+                .orElseThrow(() -> new RuntimeException("Institution not found"));
+
+        return courseRepository.findByInstitution(inst);
+    }
+
 
 
 }

@@ -163,4 +163,26 @@ public class InstitutionController {
         return service.addCourse(id, course);
     }
 
+    // ---------------------------------------------------------
+// INSTITUTION / ADMIN: Get all courses of an institution
+// ---------------------------------------------------------
+    @GetMapping("/{id}/courses")
+    public List<InstitutionCourse> getCourses(@PathVariable Long id) {
+
+        String role = getRole();
+        String username = getUsername();
+
+        // Institution can only view its own courses
+        if ("INSTITUTION".equals(role)) {
+            service.validateInstitutionAccess(id, username);
+        }
+        // Admin can view any institution’s courses
+        else if (!"ADMIN".equals(role)) {
+            throw new RuntimeException("Access denied");
+        }
+
+        return service.getCourses(id);
+    }
+
+
 }

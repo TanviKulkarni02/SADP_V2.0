@@ -10,4 +10,5 @@ public class InstitutionRequest {
     private String phone;
     private String address;
     private String website;
+    private String password; // NEW
 }
