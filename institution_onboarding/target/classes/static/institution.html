@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - EduConnect</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav id="navbar" class="navbar"></nav>
+<div class="shape-blob shape-1"></div>
+<div class="shape-blob shape-2"></div>
+<div class="shape-blob shape-3"></div>
+
+<div class="main-content">
+    <div class="container wide">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2>Institution Dashboard</h2>
+            <span id="welcomeBadge" style="font-size: 0.9rem; color: var(--text-muted);"></span>
+        </div>
+
+        <div id="idSection">
+            <div style="background: #e0e7ff; padding: 1.5rem; border-radius: 8px; border: 1px solid #c7d2fe;">
+                <h3 style="margin: 0 0 10px 0; color: #3730a3;">Session Setup</h3>
+                <p style="margin-bottom: 15px; color: #4338ca;">Please enter your assigned <strong>Institution ID</strong>.</p>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="instIdInput" placeholder="ID e.g. 15" style="margin-bottom: 0;">
+                    <button onclick="loadInstitutionDashboard()">Access</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="dashboardContent" class="hidden">
+            <div id="statusSection" class="hidden">
+                <div id="statusDisplay" class="status-card"></div>
+                <p id="rejectionReason" class="hidden" style="background: var(--danger-bg); padding: 15px; border-radius: 6px; color: var(--danger-text); border: 1px solid #fca5a5;"></p>
+            </div>
+
+            <div id="waitMessage" class="hidden" style="text-align: center; padding: 2rem; background: var(--warning-bg); border-radius: 8px;">
+                <h3 style="color: var(--warning-text);">Verification Pending</h3>
+                <p style="margin: 0;">We have received your documents. An admin will review them shortly.</p>
+            </div>
+
+            <div id="uploadSection" class="hidden">
+                <div style="border: 2px dashed var(--border); padding: 2rem; text-align: center; border-radius: 8px;">
+                    <h3>📄 Upload Required</h3>
+                    <p>Please upload your verification document (PDF/JPG) to proceed.</p>
+                    <form id="uploadForm" style="max-width: 300px; margin: 0 auto;">
+                        <input type="file" id="docFile" required style="border: none;">
+                        <button type="submit" class="full-width">Upload Document</button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="courseSection" class="hidden">
+                <h3>Manage Courses</h3>
+                <form id="courseForm" style="background: #f9fafb; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
+                    <input type="text" id="courseName" placeholder="Course Name" required>
+                    <textarea id="courseDescription" placeholder="Course Description (Short summary)" rows="3" required></textarea>
+                    <button type="submit" class="success full-width">Add Course</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>

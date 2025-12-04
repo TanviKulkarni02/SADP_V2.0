@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - EduConnect</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shape-blob shape-1"></div>
+<div class="shape-blob shape-2"></div>
+<div class="shape-blob shape-3"></div>
+
+<nav id="navbar" class="navbar"></nav>
+
+<div class="main-content">
+    <div class="container">
+        <h2 style="text-align: center;">Welcome Back</h2>
+        <p style="text-align: center;">Access your dashboard securely.</p>
+        <form id="loginForm">
+            <input type="text" id="username" placeholder="Email Address" required>
+            <input type="password" id="password" placeholder="Password" required>
+
+            <div style="display: flex; align-items: center; margin-bottom: 20px; background: rgba(255,255,255,0.5); padding: 10px; border-radius: 6px;">
+                <input type="checkbox" id="isAdmin" style="width: auto; margin: 0 10px 0 0;">
+                <label for="isAdmin" style="font-size: 0.9rem; font-weight: 500;">Log in as Administrator</label>
+            </div>
+
+            <button type="submit" class="full-width">Login</button>
+            <button type="button" class="secondary full-width" style="margin-top: 10px;" onclick="window.location.href='index.html'">Cancel</button>
+        </form>
+    </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel - EduConnect</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shape-blob shape-1"></div>
+<div class="shape-blob shape-2"></div>
+<div class="shape-blob shape-3"></div>
+<nav id="navbar" class="navbar"></nav>
+
+<div class="main-content">
+    <div class="container wide">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2>Admin Panel</h2>
+            <span style="background: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem;">Administrator Mode</span>
+        </div>
+
+        <div style="background: #f9fafb; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 2rem;">
+            <h3 style="margin: 0 0 1rem 0;">Manage Institution</h3>
+            <div style="display: flex; gap: 10px;">
+                <input type="number" id="adminInstId" placeholder="Enter Institution ID" style="margin-bottom: 0;">
+                <button onclick="loadAdminView()">Fetch Documents</button>
+            </div>
+        </div>
+
+        <div id="adminContent" class="hidden">
+            <h3>Uploaded Documents</h3>
+            <ul id="docList" class="file-list">
+            </ul>
+            <p id="noDocsMsg" class="hidden" style="color: var(--text-muted); font-style: italic;">No documents found for this institution.</p>
+
+            <hr>
+
+            <h3>Verification Action</h3>
+            <div class="btn-group">
+                <button onclick="verifyInstitution(true)" style="background-color: #16a34a;">Approve Institution</button>
+                <button onclick="toggleRejectBox()" class="danger">Reject Institution</button>
+            </div>
+
+            <div id="rejectBox" class="hidden" style="margin-top: 15px; background: var(--danger-bg); padding: 15px; border-radius: 8px; border: 1px solid #fca5a5;">
+                <h4 style="color: var(--danger-text); margin-bottom: 10px;">Rejection Details</h4>
+                <textarea id="rejectReason" placeholder="Enter reason for rejection..." rows="3"></textarea>
+                <button onclick="verifyInstitution(false)" class="danger full-width">Confirm Rejection</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
