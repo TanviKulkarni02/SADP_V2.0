@@ -6,22 +6,23 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<nav id="navbar" class="navbar"></nav>
 <div class="shape-blob shape-1"></div>
 <div class="shape-blob shape-2"></div>
 <div class="shape-blob shape-3"></div>
 
+<nav id="navbar" class="navbar"></nav>
+
 <div class="main-content">
     <div class="container wide">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2>Institution Dashboard</h2>
-            <span id="welcomeBadge" style="font-size: 0.9rem; color: var(--text-muted);"></span>
+            <h2>Dashboard</h2>
+            <span id="welcomeBadge" style="font-size: 0.9rem; color: var(--text-muted); background: rgba(255,255,255,0.6); padding: 5px 10px; border-radius: 4px;"></span>
         </div>
 
         <div id="idSection">
-            <div style="background: #e0e7ff; padding: 1.5rem; border-radius: 8px; border: 1px solid #c7d2fe;">
-                <h3 style="margin: 0 0 10px 0; color: #3730a3;">Session Setup</h3>
-                <p style="margin-bottom: 15px; color: #4338ca;">Please enter your assigned <strong>Institution ID</strong>.</p>
+            <div style="background: rgba(255,255,255,0.6); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--glass-border);">
+                <h3 style="margin: 0 0 10px 0; color: var(--primary);">Session Setup</h3>
+                <p style="margin-bottom: 15px;">Please enter your <strong>Institution ID</strong>.</p>
                 <div style="display: flex; gap: 10px;">
                     <input type="number" id="instIdInput" placeholder="ID e.g. 15" style="margin-bottom: 0;">
                     <button onclick="loadInstitutionDashboard()">Access</button>
@@ -36,14 +37,14 @@
             </div>
 
             <div id="waitMessage" class="hidden" style="text-align: center; padding: 2rem; background: var(--warning-bg); border-radius: 8px;">
-                <h3 style="color: var(--warning-text);">Verification Pending</h3>
-                <p style="margin: 0;">We have received your documents. An admin will review them shortly.</p>
+                <h3>Verification Pending</h3>
+                <p>We have received your documents. An admin will review them shortly.</p>
             </div>
 
             <div id="uploadSection" class="hidden">
-                <div style="border: 2px dashed var(--border); padding: 2rem; text-align: center; border-radius: 8px;">
+                <div style="border: 2px dashed #cbd5e1; padding: 2rem; text-align: center; border-radius: 8px; background: rgba(255,255,255,0.5);">
                     <h3>📄 Upload Required</h3>
-                    <p>Please upload your verification document (PDF/JPG) to proceed.</p>
+                    <p>Please upload your verification document to proceed.</p>
                     <form id="uploadForm" style="max-width: 300px; margin: 0 auto;">
                         <input type="file" id="docFile" required style="border: none;">
                         <button type="submit" class="full-width">Upload Document</button>
@@ -52,12 +53,24 @@
             </div>
 
             <div id="courseSection" class="hidden">
-                <h3>Manage Courses</h3>
-                <form id="courseForm" style="background: #f9fafb; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
-                    <input type="text" id="courseName" placeholder="Course Name" required>
-                    <textarea id="courseDescription" placeholder="Course Description (Short summary)" rows="3" required></textarea>
-                    <button type="submit" class="success full-width">Add Course</button>
-                </form>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+
+                    <div style="background: rgba(255,255,255,0.6); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--glass-border);">
+                        <h3>Add New Course</h3>
+                        <form id="courseForm">
+                            <input type="text" id="courseName" placeholder="Course Name" required>
+                            <textarea id="courseDescription" placeholder="Description" rows="3" required></textarea>
+                            <button type="submit" class="success full-width">Add Course</button>
+                        </form>
+                    </div>
+
+                    <div style="background: rgba(255,255,255,0.6); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--glass-border);">
+                        <h3>Your Courses</h3>
+                        <ul id="courseList" class="file-list" style="max-height: 300px; overflow-y: auto;">
+                        </ul>
+                        <p id="noCoursesMsg" style="text-align: center; font-style: italic; font-size: 0.9rem; margin-top: 20px;">No courses added yet.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

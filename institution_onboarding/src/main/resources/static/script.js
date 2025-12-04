@@ -1,50 +1,53 @@
 /* src/main/resources/static/script.js */
 
-const API_BASE = "/api";
+const API_BASE = "http://localhost:8080/api";
 
-// --- UI HELPERS (Navbar & Toasts) ---
+// --- DEBUG HELPER ---
+function debugLog(msg, data = null) {
+    if (data) console.log(`[DEBUG]: ${msg}`, data);
+    else console.log(`[DEBUG]: ${msg}`);
+}
+
+// --- UI INITIALIZATION ---
 document.addEventListener("DOMContentLoaded", () => {
     // 1. Inject Navbar
     const nav = document.getElementById("navbar");
-    const token = localStorage.getItem("token");
+    if(nav) {
+        const token = localStorage.getItem("token");
+        let navContent = `<a href="index.html" class="nav-brand">EduConnect</a>`;
 
-    let navContent = `<a href="index.html" class="nav-brand">EduConnect</a>`;
-
-    if (token) {
-        navContent += `
-            <div class="nav-links">
-                <button onclick="logout()" class="secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem;">Logout</button>
-            </div>
-        `;
-    } else {
-        if (!window.location.pathname.includes('login.html') && !window.location.pathname.includes('register.html')) {
-             navContent += `
+        if (token) {
+            navContent += `
                 <div class="nav-links">
-                    <button onclick="window.location.href='login.html'" class="primary">Login</button>
+                    <button onclick="logout()" class="secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem;">Logout</button>
                 </div>
             `;
+        } else {
+            if (!window.location.pathname.includes('login.html') && !window.location.pathname.includes('register.html')) {
+                 navContent += `
+                    <div class="nav-links">
+                        <button onclick="window.location.href='login.html'" class="primary">Login</button>
+                    </div>
+                `;
+            }
         }
+        nav.innerHTML = navContent;
     }
-    if(nav) nav.innerHTML = navContent;
 
     // 2. Create Toast Container
     const toastContainer = document.createElement("div");
     toastContainer.id = "toast-container";
     document.body.appendChild(toastContainer);
 
-    // 3. AUTO-FILL ID (New Feature)
-    // If we are on the dashboard, check if we have a saved ID from registration
+    // 3. Auto-fill ID
     const instInput = document.getElementById("instIdInput");
     if(instInput) {
         const savedId = localStorage.getItem("saved_inst_id");
-        if(savedId) {
-            instInput.value = savedId;
-            // Optional: Auto-load if you prefer, but let's let user click to be safe
-            // loadInstitutionDashboard();
-        }
+        if(savedId) instInput.value = savedId;
     }
 });
 
+// --- TOAST NOTIFICATION ---
 function showToast(message, type = "success") {
     const container = document.getElementById("toast-container");
     const toast = document.createElement("div");
@@ -57,7 +60,7 @@ function showToast(message, type = "success") {
     }, 3000);
 }
 
-// --- AUTH HELPER ---
+// --- AUTH HELPERS ---
 function getToken() { return localStorage.getItem("token"); }
 function getAuthHeaders() { return { "Authorization": `Bearer ${getToken()}` }; }
 
@@ -67,18 +70,29 @@ function logout() {
     window.location.href = "login.html";
 }
 
-// --- REGISTRATION (Updated to Save ID) ---
+// --- REGISTRATION ---
 const registerForm = document.getElementById("registerForm");
 if (registerForm) {
     registerForm.addEventListener("submit", async (e) => {
         e.preventDefault();
+
+        // Password Validation
+        const password = document.getElementById("registerPassword").value;
+        const pwRegex = /^(?=.*[A-Z])(?=.*\d)[A-Za-z0-9]{8,}$/;
+
+        if (!pwRegex.test(password)) {
+            showToast("Password: Min 8 chars, 1 Upper, 1 Digit. (No Special Chars)", "error");
+            return;
+        }
+
         const data = {
             name: document.getElementById("name").value,
             type: document.getElementById("type").value,
             email: document.getElementById("email").value,
             phone: document.getElementById("phone").value,
             address: document.getElementById("address").value,
-            website: document.getElementById("website").value
+            website: document.getElementById("website").value,
+            password: password
         };
 
         try {
@@ -90,17 +104,15 @@ if (registerForm) {
             const result = await res.json();
 
             if (res.ok) {
-                // FEATURE: Save ID to local storage so they don't forget it
                 localStorage.setItem("saved_inst_id", result.id);
-
-                alert(`Registration Successful!\n\nIMPORTANT: Your Institution ID is: ${result.id}\nWe have auto-saved this for your next login.`);
+                alert(`Registration Successful!\n\nID: ${result.id}\n(Saved for next login)`);
                 window.location.href = "login.html";
             } else {
-                showToast("Registration failed", "error");
+                showToast("Registration failed.", "error");
             }
         } catch (err) {
             console.error(err);
-            showToast("Error connecting to server", "error");
+            showToast("Server error during registration", "error");
         }
     });
 }
@@ -110,6 +122,7 @@ const loginForm = document.getElementById("loginForm");
 if (loginForm) {
     loginForm.addEventListener("submit", async (e) => {
         e.preventDefault();
+
         const loginData = {
             username: document.getElementById("username").value,
             password: document.getElementById("password").value
@@ -132,59 +145,82 @@ if (loginForm) {
             }
         } catch (err) {
             console.error(err);
-            showToast("Login Error: " + err.message, "error");
+            showToast("Login Connection Error", "error");
         }
     });
 }
 
-// --- INSTITUTION DASHBOARD (FIXED VALIDATION) ---
+// --- INSTITUTION DASHBOARD ---
 async function loadInstitutionDashboard() {
     const instId = document.getElementById("instIdInput").value;
     if (!instId) return showToast("Please enter an ID", "error");
-
-    // Do NOT hide ID section yet. Verify first.
 
     try {
         const res = await fetch(`${API_BASE}/institutions/${instId}/status`, {
             headers: getAuthHeaders()
         });
 
-        // --- SECURITY CHECK ---
         if (res.status === 403 || res.status === 401) {
-            // STOP! This ID does not belong to the logged-in user
-            showToast("⛔ Access Denied: You do not own this Institution ID.", "error");
-            return; // Exit function, do not show dashboard
+            showToast("⛔ Access Denied: You do not own this ID.", "error");
+            return;
         }
 
-        // Only proceed if status is OK (200) or Not Found (404 - means new/no docs) or Server Error (500)
-
+        // Save ID immediately if access is allowed
         sessionStorage.setItem("currentInstId", instId);
-        // NOW we can hide the input section
-        document.getElementById("idSection").classList.add("hidden");
-        document.getElementById("dashboardContent").classList.remove("hidden");
-
-        const badge = document.getElementById("welcomeBadge");
-        if(badge) badge.innerText = `Session ID: ${instId}`;
 
         if (res.status === 404 || res.status === 500) {
-            renderState("NEW");
-        } else {
-            const status = await res.text();
-            const localUploadFlag = localStorage.getItem(`hasUploaded_${instId}`);
-
-            if (status === "PENDING" && !localUploadFlag) {
-                renderState("NEW");
-            } else {
-                renderState(status);
-            }
+            showDashboard();
+            renderState("NEW", null);
+            return;
         }
+
+        // --- REJECTION REASON DEBUGGING & PARSING ---
+        const rawText = await res.text();
+        debugLog("RAW STATUS RESPONSE (Check Console!):", rawText); // <--- CHECK THIS IN CONSOLE
+
+        let status = "";
+        let reason = null;
+
+        try {
+            const data = JSON.parse(rawText);
+            if (typeof data === 'object' && data !== null) {
+                // If backend returns the Entity Object
+                status = data.status;
+                // Check both possible field names
+                reason = data.rejectionReason || data.reason;
+            } else {
+                // If backend returns simple string "REJECTED"
+                status = data;
+            }
+        } catch (e) {
+            // Fallback: it's a plain text string
+            status = rawText;
+        }
+
+        showDashboard(instId);
+
+        const localUploadFlag = localStorage.getItem(`hasUploaded_${instId}`);
+        if (status === "PENDING" && !localUploadFlag) {
+            renderState("NEW", null);
+        } else {
+            renderState(status, reason);
+        }
+
     } catch (err) {
         console.error(err);
         showToast("Connection Error", "error");
     }
 }
 
-function renderState(status) {
+function showDashboard(instId) {
+    document.getElementById("idSection").classList.add("hidden");
+    document.getElementById("dashboardContent").classList.remove("hidden");
+    const badge = document.getElementById("welcomeBadge");
+    if(badge && instId) badge.innerText = `Session ID: ${instId}`;
+}
+
+// --- STATE RENDERER ---
+function renderState(status, rejectionReasonText) {
     const els = {
         status: document.getElementById("statusSection"),
         display: document.getElementById("statusDisplay"),
@@ -214,6 +250,9 @@ function renderState(status) {
             els.display.className = "status-card status-APPROVED";
         }
         if(els.course) els.course.classList.remove("hidden");
+
+        // TRIGGER COURSE FETCH HERE
+        fetchCourses();
     }
     else if (status === "REJECTED") {
         if(els.status) els.status.classList.remove("hidden");
@@ -221,10 +260,15 @@ function renderState(status) {
             els.display.textContent = "APPLICATION REJECTED";
             els.display.className = "status-card status-REJECTED";
         }
+
         if(els.reason) {
             els.reason.classList.remove("hidden");
-            els.reason.innerText = "Application Rejected. Please upload corrected documents.";
+            const reasonText = (rejectionReasonText && rejectionReasonText.trim() !== "")
+                ? rejectionReasonText
+                : "Admin did not provide specific details (or backend returned plain string).";
+            els.reason.innerHTML = `<strong>Reason:</strong> ${reasonText}<br><small style='opacity:0.8'>Please re-upload documents.</small>`;
         }
+
         if(els.upload) els.upload.classList.remove("hidden");
     }
 }
@@ -250,13 +294,57 @@ if (uploadForm) {
                 showToast("Document Uploaded! Verification Pending.");
                 setTimeout(() => location.reload(), 1500);
             } else {
-                if(res.status === 403) showToast("You are not authorized to upload for this ID", "error");
-                else showToast("Upload Failed", "error");
+                showToast("Upload Failed", "error");
             }
         } catch (err) {
             showToast("Error uploading", "error");
         }
     });
+}
+
+// --- FETCH COURSES (FIXED) ---
+async function fetchCourses() {
+    const instId = sessionStorage.getItem("currentInstId");
+    debugLog(`Fetching courses for ID: ${instId}`);
+
+    if(!instId) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/institutions/${instId}/courses`, {
+            headers: getAuthHeaders()
+        });
+
+        debugLog(`Course Fetch Status: ${res.status}`);
+
+        if(res.ok) {
+            const courses = await res.json();
+            debugLog("Courses Received:", courses);
+
+            const list = document.getElementById("courseList");
+            const msg = document.getElementById("noCoursesMsg");
+
+            if(list) list.innerHTML = ""; // Clear existing
+
+            if(courses && courses.length > 0) {
+                if(msg) msg.classList.add("hidden");
+
+                courses.forEach(c => {
+                    const li = document.createElement("li");
+                    li.innerHTML = `
+                        <div style="display:flex; flex-direction:column;">
+                            <span style="font-weight:bold; color:var(--primary); font-size:1rem;">${c.courseName}</span>
+                            <span style="font-size:0.9rem; color:var(--text-muted);">${c.courseDescription}</span>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                });
+            } else {
+                if(msg) msg.classList.remove("hidden");
+            }
+        }
+    } catch(err) {
+        console.error("Failed to load courses:", err);
+    }
 }
 
 // --- ADD COURSE ---
@@ -282,8 +370,9 @@ if (courseForm) {
             });
 
             if (res.ok) {
-                showToast("Course Added Successfully!");
-                e.target.reset();
+                showToast("Course Added!");
+                document.getElementById("courseForm").reset();
+                fetchCourses(); // Refresh list immediately
             } else {
                 showToast("Failed to add course", "error");
             }
@@ -300,10 +389,7 @@ async function loadAdminView() {
     sessionStorage.setItem("adminTargetId", instId);
 
     try {
-        const res = await fetch(`${API_BASE}/institutions/${instId}/documents`, {
-            headers: getAuthHeaders()
-        });
-
+        const res = await fetch(`${API_BASE}/institutions/${instId}/documents`, { headers: getAuthHeaders() });
         if (res.ok) {
             const docs = await res.json();
             const list = document.getElementById("docList");
@@ -316,71 +402,41 @@ async function loadAdminView() {
                 document.getElementById("noDocsMsg").classList.add("hidden");
                 docs.forEach(doc => {
                     const li = document.createElement("li");
-                    li.innerHTML = `
-                        <span>${doc.fileName}</span>
-                        <button class="secondary" onclick="downloadDoc(${instId}, ${doc.id}, '${doc.fileName}')">Download</button>
-                    `;
+                    li.innerHTML = `<span>${doc.fileName}</span> <button class="secondary" onclick="downloadDoc(${instId}, ${doc.id}, '${doc.fileName}')">Download</button>`;
                     list.appendChild(li);
                 });
             }
-        } else {
-            showToast("Could not fetch documents. Check ID.", "error");
-        }
-    } catch (err) {
-        showToast("Error fetching documents", "error");
-    }
+        } else { showToast("Could not fetch documents", "error"); }
+    } catch (err) { showToast("Error fetching", "error"); }
 }
 
 async function downloadDoc(instId, docId, fileName) {
     try {
-        const res = await fetch(`${API_BASE}/institutions/${instId}/documents/${docId}`, {
-            headers: getAuthHeaders()
-        });
-
+        const res = await fetch(`${API_BASE}/institutions/${instId}/documents/${docId}`, { headers: getAuthHeaders() });
         if(res.ok) {
             const blob = await res.blob();
             const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-        } else {
-            showToast("Download failed", "error");
-        }
-    } catch(err) {
-        showToast("Error downloading file", "error");
-    }
+            const a = document.createElement('a'); a.href = url; a.download = fileName;
+            document.body.appendChild(a); a.click(); a.remove();
+        } else { showToast("Download failed", "error"); }
+    } catch(e) { showToast("Download error", "error"); }
 }
 
-function toggleRejectBox() {
-    document.getElementById("rejectBox").classList.toggle("hidden");
-}
+function toggleRejectBox() { document.getElementById("rejectBox").classList.toggle("hidden"); }
 
 async function verifyInstitution(approve) {
     const instId = sessionStorage.getItem("adminTargetId");
     let url = `${API_BASE}/institutions/${instId}/verify?approve=${approve}`;
-
     if (!approve) {
         const reason = document.getElementById("rejectReason").value;
-        if (!reason) return showToast("Please provide a rejection reason", "error");
+        if (!reason) return showToast("Enter rejection reason", "error");
         url += `&reason=${encodeURIComponent(reason)}`;
     }
-
     try {
-        const res = await fetch(url, {
-            method: "POST",
-            headers: getAuthHeaders()
-        });
-
+        const res = await fetch(url, { method: "POST", headers: getAuthHeaders() });
         if (res.ok) {
-            showToast(approve ? "Institution Approved" : "Institution Rejected");
+            showToast(approve ? "Approved" : "Rejected");
             setTimeout(() => location.reload(), 1500);
-        } else {
-            showToast("Action failed", "error");
-        }
-    } catch (err) {
-        showToast("Error processing verification", "error");
-    }
+        } else { showToast("Action failed", "error"); }
+    } catch (e) { showToast("Error", "error"); }
 }

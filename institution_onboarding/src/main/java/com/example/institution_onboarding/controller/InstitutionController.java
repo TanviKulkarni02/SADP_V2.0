@@ -8,11 +8,14 @@ import com.example.institution_onboarding.service.InstitutionService;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/institutions")
@@ -50,10 +53,10 @@ public class InstitutionController {
 
 
     // ----------------------------------------
-    // INSTITUTION: View Status
+    // INSTITUTION: View Status (FIXED FOR REASON)
     // ----------------------------------------
     @GetMapping("/{id}/status")
-    public String getStatus(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getStatus(@PathVariable Long id) {
 
         String role = getRole();
         String username = getUsername();
@@ -63,7 +66,19 @@ public class InstitutionController {
 
         service.validateInstitutionAccess(id, username);
 
-        return service.getStatus(id).getStatus().toString();
+        // Fetch the full entity
+        Institution institution = service.getStatus(id);
+
+        // Build JSON Response
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", institution.getStatus().toString());
+
+        // Include reason if it exists
+        if (institution.getRejectionReason() != null) {
+            response.put("rejectionReason", institution.getRejectionReason());
+        }
+
+        return ResponseEntity.ok(response);
     }
 
 
@@ -136,9 +151,10 @@ public class InstitutionController {
 
         return service.uploadDocument(id, file);
     }
+
     // ----------------------------------------
-// INSTITUTION: Add Course (Only AFTER APPROVAL)
-// ----------------------------------------
+    // INSTITUTION: Add Course (Only AFTER APPROVAL)
+    // ----------------------------------------
     @PostMapping("/{id}/courses")
     public InstitutionCourse addCourse(
             @PathVariable Long id,
@@ -154,7 +170,7 @@ public class InstitutionController {
         // Ensure the logged-in institution is the same
         service.validateInstitutionAccess(id, username);
 
-        // Optional: Ensure institution is APPROVED
+        // Ensure institution is APPROVED
         Institution inst = service.getStatus(id);
         if (!inst.getStatus().toString().equals("APPROVED")) {
             throw new RuntimeException("Institution is not approved yet");
@@ -164,8 +180,8 @@ public class InstitutionController {
     }
 
     // ---------------------------------------------------------
-// INSTITUTION / ADMIN: Get all courses of an institution
-// ---------------------------------------------------------
+    // INSTITUTION / ADMIN: Get all courses of an institution
+    // ---------------------------------------------------------
     @GetMapping("/{id}/courses")
     public List<InstitutionCourse> getCourses(@PathVariable Long id) {
 
@@ -183,6 +199,4 @@ public class InstitutionController {
 
         return service.getCourses(id);
     }
-
-
 }

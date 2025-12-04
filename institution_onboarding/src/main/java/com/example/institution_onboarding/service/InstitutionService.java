@@ -34,6 +34,17 @@ public class InstitutionService {
     // ------------------------------------------------------------
     public Institution register(InstitutionRequest request) {
 
+        // ---- server-side validation ----
+        // check if email is already registered as an institution
+        if (institutionRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new RuntimeException("Institution with this email already registered");
+        }
+
+        // check if a user with same username exists (to be safe)
+        if (userRepository.findByUsername(request.getEmail()).isPresent()) {
+            throw new RuntimeException("User with this email already exists");
+        }
+
         // validate password (server-side)
         String pw = request.getPassword();
         if (pw == null || !pw.matches("^(?=.*[A-Z])(?=.*\\d).{8,}$")) {

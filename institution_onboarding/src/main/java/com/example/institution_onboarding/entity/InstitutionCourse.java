@@ -1,5 +1,6 @@
 package com.example.institution_onboarding.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,5 +20,6 @@ public class InstitutionCourse {
 
     @ManyToOne
     @JoinColumn(name = "institution_id")
+    @JsonIgnore
     private Institution institution;
 }
