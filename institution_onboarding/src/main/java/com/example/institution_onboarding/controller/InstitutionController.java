@@ -215,4 +215,21 @@ public class InstitutionController {
         return service.getPendingInstitutions();
     }
 
+    // ----------------------------------------
+// INSTITUTION: Get Own Institution Details
+// ----------------------------------------
+    @GetMapping("/me")
+    public Institution getMyInstitution() {
+
+        String role = getRole();
+        String username = getUsername();
+
+        if (!"INSTITUTION".equals(role)) {
+            throw new RuntimeException("Only institutions can access this");
+        }
+
+        return service.getInstitutionByEmail(username);
+    }
+
+
 }

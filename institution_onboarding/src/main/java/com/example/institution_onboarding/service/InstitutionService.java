@@ -183,6 +183,15 @@ public class InstitutionService {
         return institutionRepository.findByStatus(Status.PENDING);
     }
 
+    // ----------------------------------------
+// Fetch institution using logged-in email
+// ----------------------------------------
+    public Institution getInstitutionByEmail(String email) {
+        return institutionRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Institution not found for user"));
+    }
+
+
 
 
 

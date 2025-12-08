@@ -2,8 +2,9 @@
 
 const API_BASE = "http://localhost:8080/api";
 
-// --- GLOBAL STATE FOR ADMIN ---
-let currentSelectedId = null;
+// --- GLOBAL STATE ---
+let currentInstId = null; // Stored internally, never asked from user
+let currentSelectedId = null; // For Admin View
 
 // --- DEBUG HELPER ---
 function debugLog(msg, data = null) {
@@ -42,16 +43,16 @@ document.addEventListener("DOMContentLoaded", () => {
     toastContainer.id = "toast-container";
     document.body.appendChild(toastContainer);
 
-    // 3. ADMIN: Check if we are on Admin Page -> Load Pending List
-    if (window.location.pathname.includes("admin.html")) {
-        loadPendingRequests();
+    // 3. ROUTER LOGIC
+
+    // IF INSTITUTION DASHBOARD -> Auto Fetch Profile
+    if (window.location.pathname.includes("institution.html")) {
+        fetchMyProfile();
     }
 
-    // 4. INSTITUTION: Auto-fill ID
-    const instInput = document.getElementById("instIdInput");
-    if(instInput) {
-        const savedId = localStorage.getItem("saved_inst_id");
-        if(savedId) instInput.value = savedId;
+    // IF ADMIN DASHBOARD -> Load Pending List
+    if (window.location.pathname.includes("admin.html")) {
+        loadPendingRequests();
     }
 });
 
@@ -112,8 +113,10 @@ if (registerForm) {
             const result = await res.json();
 
             if (res.ok) {
+                // We no longer strictly need to save the ID for manual entry,
+                // but it's good for reference or if the user wants to know it.
                 localStorage.setItem("saved_inst_id", result.id);
-                alert(`Registration Successful!\n\nID: ${result.id}\n(Saved for next login)`);
+                alert(`Registration Successful!\n\nID: ${result.id}\n(Auto-login enabled next time)`);
                 window.location.href = "login.html";
             } else {
                 showToast("Registration failed.", "error");
@@ -158,69 +161,65 @@ if (loginForm) {
     });
 }
 
-// --- INSTITUTION DASHBOARD ---
-async function loadInstitutionDashboard() {
-    const instId = document.getElementById("instIdInput").value;
-    if (!instId) return showToast("Please enter an ID", "error");
+// ==========================================
+//  INSTITUTION WORKFLOW (THE NEW "ME" API)
+// ==========================================
+
+async function fetchMyProfile() {
+    const loading = document.getElementById("loadingState");
+    const content = document.getElementById("dashboardContent");
 
     try {
-        const res = await fetch(`${API_BASE}/institutions/${instId}/status`, {
+        // CALL THE NEW ENDPOINT
+        const res = await fetch(`${API_BASE}/institutions/me`, {
             headers: getAuthHeaders()
         });
 
         if (res.status === 403 || res.status === 401) {
-            showToast("⛔ Access Denied: You do not own this ID.", "error");
+            alert("Session Expired or Unauthorized. Please Login.");
+            logout();
             return;
         }
 
-        // Save ID immediately if access is allowed
-        sessionStorage.setItem("currentInstId", instId);
+        if (res.ok) {
+            // BACKEND RETURNS: { id, name, email, status, rejectionReason }
+            const profile = await res.json();
+            debugLog("Profile Fetched:", profile);
 
-        if (res.status === 404 || res.status === 500) {
-            showDashboard(instId);
-            renderState("NEW", null);
-            return;
-        }
+            // 1. Store ID internally for subsequent calls (upload/courses)
+            currentInstId = profile.id;
+            sessionStorage.setItem("currentInstId", profile.id);
 
-        // --- REJECTION REASON DEBUGGING & PARSING ---
-        const rawText = await res.text();
-        debugLog("RAW STATUS RESPONSE:", rawText);
+            // 2. Update UI Header
+            document.getElementById("instNameDisplay").innerText = profile.name;
+            document.getElementById("instEmailDisplay").innerText = profile.email;
+            document.getElementById("userInfoBadge").classList.remove("hidden");
 
-        let status = "";
-        let reason = null;
+            // 3. Determine State
+            // We use the Local Flag to distinguish "Fresh Account" vs "Uploaded but Pending"
+            const localUploadFlag = localStorage.getItem(`hasUploaded_${profile.id}`);
 
-        try {
-            const data = JSON.parse(rawText);
-            if (typeof data === 'object' && data !== null) {
-                status = data.status;
-                reason = data.rejectionReason || data.reason;
+            let displayStatus = profile.status;
+
+            // Refine Logic: If Backend says PENDING but we haven't uploaded locally -> Treat as NEW (Show Upload)
+            // If Backend says PENDING and we HAVE uploaded -> Show Wait
+            if (displayStatus === "PENDING" && !localUploadFlag) {
+                renderState("NEW", null);
             } else {
-                status = data;
+                renderState(displayStatus, profile.rejectionReason);
             }
-        } catch (e) {
-            status = rawText;
-        }
 
-        showDashboard(instId);
+            // Hide Loading, Show Content
+            loading.classList.add("hidden");
+            content.classList.remove("hidden");
 
-        const localUploadFlag = localStorage.getItem(`hasUploaded_${instId}`);
-        if (status === "PENDING" && !localUploadFlag) {
-            renderState("NEW", null);
         } else {
-            renderState(status, reason);
+            showToast("Failed to fetch profile. Server Error.", "error");
         }
-
     } catch (err) {
         console.error(err);
         showToast("Connection Error", "error");
     }
-}
-
-function showDashboard(instId) {
-    document.getElementById("idSection").classList.add("hidden");
-    document.getElementById("dashboardContent").classList.remove("hidden");
-    const badge = document.getElementById("welcomeBadge");
-    if(badge && instId) badge.innerText = `Session ID: ${instId}`;
 }
 
 // --- STATE RENDERER ---
@@ -254,7 +253,7 @@ function renderState(status, rejectionReasonText) {
             els.display.className = "status-card status-APPROVED";
         }
         if(els.course) els.course.classList.remove("hidden");
-        fetchCourses();
+        fetchCourses(); // Load courses immediately
     }
     else if (status === "REJECTED") {
         if(els.status) els.status.classList.remove("hidden");
@@ -267,7 +266,7 @@ function renderState(status, rejectionReasonText) {
             const reasonText = (rejectionReasonText && rejectionReasonText.trim() !== "")
                 ? rejectionReasonText
                 : "Admin did not provide specific details.";
-            els.reason.innerHTML = `<strong>Reason:</strong> ${reasonText}<br><small style='opacity:0.8'>Please re-upload documents.</small>`;
+            els.reason.innerHTML = `<strong>Reason:</strong> ${reasonText}<br><small>Please re-upload documents.</small>`;
         }
         if(els.upload) els.upload.classList.remove("hidden");
     }
@@ -278,19 +277,22 @@ const uploadForm = document.getElementById("uploadForm");
 if (uploadForm) {
     uploadForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const instId = sessionStorage.getItem("currentInstId");
+
+        // Use stored ID
+        if(!currentInstId) return showToast("Profile not loaded.", "error");
+
         const formData = new FormData();
         formData.append("file", document.getElementById("docFile").files[0]);
 
         try {
-            const res = await fetch(`${API_BASE}/institutions/${instId}/documents/upload`, {
+            const res = await fetch(`${API_BASE}/institutions/${currentInstId}/documents/upload`, {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${getToken()}` },
                 body: formData
             });
 
             if (res.ok) {
-                localStorage.setItem(`hasUploaded_${instId}`, "true");
+                localStorage.setItem(`hasUploaded_${currentInstId}`, "true");
                 showToast("Document Uploaded! Verification Pending.");
                 setTimeout(() => location.reload(), 1500);
             } else {
@@ -304,11 +306,11 @@ if (uploadForm) {
 
 // --- FETCH COURSES ---
 async function fetchCourses() {
-    const instId = sessionStorage.getItem("currentInstId");
-    if(!instId) return;
+    // Use stored ID
+    if(!currentInstId) return;
 
     try {
-        const res = await fetch(`${API_BASE}/institutions/${instId}/courses`, {
+        const res = await fetch(`${API_BASE}/institutions/${currentInstId}/courses`, {
             headers: getAuthHeaders()
         });
 
@@ -345,7 +347,8 @@ const courseForm = document.getElementById("courseForm");
 if (courseForm) {
     courseForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const instId = sessionStorage.getItem("currentInstId");
+        // Use stored ID
+        if(!currentInstId) return;
 
         const data = {
             courseName: document.getElementById("courseName").value,
@@ -353,7 +356,7 @@ if (courseForm) {
         };
 
         try {
-            const res = await fetch(`${API_BASE}/institutions/${instId}/courses`, {
+            const res = await fetch(`${API_BASE}/institutions/${currentInstId}/courses`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -376,7 +379,7 @@ if (courseForm) {
 }
 
 // ==========================================
-//   ADMIN DASHBOARD FUNCTIONALITY (NEW)
+//   ADMIN DASHBOARD FUNCTIONALITY
 // ==========================================
 
 // 1. Load Pending List

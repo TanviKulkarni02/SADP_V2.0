@@ -14,23 +14,22 @@
 
 <div class="main-content">
     <div class="container wide">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2>Dashboard</h2>
-            <span id="welcomeBadge" style="font-size: 0.9rem; color: var(--text-muted); background: rgba(255,255,255,0.6); padding: 5px 10px; border-radius: 4px;"></span>
-        </div>
 
-        <div id="idSection">
-            <div style="background: rgba(255,255,255,0.6); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--glass-border);">
-                <h3 style="margin: 0 0 10px 0; color: var(--primary);">Session Setup</h3>
-                <p style="margin-bottom: 15px;">Please enter your <strong>Institution ID</strong>.</p>
-                <div style="display: flex; gap: 10px;">
-                    <input type="number" id="instIdInput" placeholder="ID e.g. 15" style="margin-bottom: 0;">
-                    <button onclick="loadInstitutionDashboard()">Access</button>
-                </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 id="dashboardTitle">Dashboard</h2>
+            <div id="userInfoBadge" class="hidden" style="text-align: right;">
+                <span id="instNameDisplay" style="display:block; font-weight:600; color:var(--primary);">...</span>
+                <span id="instEmailDisplay" style="display:block; font-size: 0.8rem; color:var(--text-muted);">...</span>
             </div>
         </div>
 
+        <div id="loadingState" style="text-align: center; padding: 40px; color: #64748b;">
+            <div style="font-size: 2rem; margin-bottom: 10px;">🔄</div>
+            <p>Securely fetching your institution profile...</p>
+        </div>
+
         <div id="dashboardContent" class="hidden">
+
             <div id="statusSection" class="hidden">
                 <div id="statusDisplay" class="status-card"></div>
                 <p id="rejectionReason" class="hidden" style="background: var(--danger-bg); padding: 15px; border-radius: 6px; color: var(--danger-text); border: 1px solid #fca5a5;"></p>
@@ -38,7 +37,7 @@
 
             <div id="waitMessage" class="hidden" style="text-align: center; padding: 2rem; background: var(--warning-bg); border-radius: 8px;">
                 <h3>Verification Pending</h3>
-                <p>We have received your documents. An admin will review them shortly.</p>
+                <p>Your documents have been submitted. An admin will review them shortly.</p>
             </div>
 
             <div id="uploadSection" class="hidden">
@@ -54,7 +53,6 @@
 
             <div id="courseSection" class="hidden">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-
                     <div style="background: rgba(255,255,255,0.6); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--glass-border);">
                         <h3>Add New Course</h3>
                         <form id="courseForm">
