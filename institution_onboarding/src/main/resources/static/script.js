@@ -3,14 +3,8 @@
 const API_BASE = "http://localhost:8080/api";
 
 // --- GLOBAL STATE ---
-let currentInstId = null; // Stored internally, never asked from user
-let currentSelectedId = null; // For Admin View
-
-// --- DEBUG HELPER ---
-function debugLog(msg, data = null) {
-    if (data) console.log(`[DEBUG]: ${msg}`, data);
-    else console.log(`[DEBUG]: ${msg}`);
-}
+let currentInstId = null;     // Institution Side: ID from /me
+let currentSelectedId = null; // Admin Side: ID being viewed
 
 // --- UI INITIALIZATION ---
 document.addEventListener("DOMContentLoaded", () => {
@@ -44,6 +38,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(toastContainer);
 
     // 3. ROUTER LOGIC
+    //
+    // The router checks the URL to decide which data fetch function to run.
 
     // IF INSTITUTION DASHBOARD -> Auto Fetch Profile
     if (window.location.pathname.includes("institution.html")) {
@@ -105,6 +101,8 @@ if (registerForm) {
         };
 
         try {
+            //
+            // Sending JSON data to the Spring Boot Controller
             const res = await fetch(`${API_BASE}/institutions/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -113,8 +111,6 @@ if (registerForm) {
             const result = await res.json();
 
             if (res.ok) {
-                // We no longer strictly need to save the ID for manual entry,
-                // but it's good for reference or if the user wants to know it.
                 localStorage.setItem("saved_inst_id", result.id);
                 alert(`Registration Successful!\n\nID: ${result.id}\n(Auto-login enabled next time)`);
                 window.location.href = "login.html";
@@ -170,7 +166,6 @@ async function fetchMyProfile() {
     const content = document.getElementById("dashboardContent");
 
     try {
-        // CALL THE NEW ENDPOINT
         const res = await fetch(`${API_BASE}/institutions/me`, {
             headers: getAuthHeaders()
         });
@@ -182,39 +177,33 @@ async function fetchMyProfile() {
         }
 
         if (res.ok) {
-            // BACKEND RETURNS: { id, name, email, status, rejectionReason }
             const profile = await res.json();
-            debugLog("Profile Fetched:", profile);
 
-            // 1. Store ID internally for subsequent calls (upload/courses)
+            // 1. Store ID
             currentInstId = profile.id;
             sessionStorage.setItem("currentInstId", profile.id);
 
-            // 2. Update UI Header
+            // 2. Update UI
             document.getElementById("instNameDisplay").innerText = profile.name;
             document.getElementById("instEmailDisplay").innerText = profile.email;
             document.getElementById("userInfoBadge").classList.remove("hidden");
 
-            // 3. Determine State
-            // We use the Local Flag to distinguish "Fresh Account" vs "Uploaded but Pending"
+            // 3. Determine State (Local Flag Logic)
             const localUploadFlag = localStorage.getItem(`hasUploaded_${profile.id}`);
-
             let displayStatus = profile.status;
 
-            // Refine Logic: If Backend says PENDING but we haven't uploaded locally -> Treat as NEW (Show Upload)
-            // If Backend says PENDING and we HAVE uploaded -> Show Wait
+            // VIVA POINT: This prevents the "Rejection Loop".
+            // If backend says PENDING but we haven't uploaded locally -> Treat as NEW
             if (displayStatus === "PENDING" && !localUploadFlag) {
                 renderState("NEW", null);
             } else {
                 renderState(displayStatus, profile.rejectionReason);
             }
 
-            // Hide Loading, Show Content
             loading.classList.add("hidden");
             content.classList.remove("hidden");
-
         } else {
-            showToast("Failed to fetch profile. Server Error.", "error");
+            showToast("Failed to fetch profile.", "error");
         }
     } catch (err) {
         console.error(err);
@@ -233,6 +222,7 @@ function renderState(status, rejectionReasonText) {
         reason: document.getElementById("rejectionReason")
     };
 
+    // Hide All
     Object.values(els).forEach(el => { if(el) el.classList.add("hidden"); });
 
     if (status === "NEW") {
@@ -253,7 +243,7 @@ function renderState(status, rejectionReasonText) {
             els.display.className = "status-card status-APPROVED";
         }
         if(els.course) els.course.classList.remove("hidden");
-        fetchCourses(); // Load courses immediately
+        fetchCourses();
     }
     else if (status === "REJECTED") {
         if(els.status) els.status.classList.remove("hidden");
@@ -277,8 +267,6 @@ const uploadForm = document.getElementById("uploadForm");
 if (uploadForm) {
     uploadForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-
-        // Use stored ID
         if(!currentInstId) return showToast("Profile not loaded.", "error");
 
         const formData = new FormData();
@@ -292,8 +280,9 @@ if (uploadForm) {
             });
 
             if (res.ok) {
+                // Set flag to force PENDING state on next reload
                 localStorage.setItem(`hasUploaded_${currentInstId}`, "true");
-                showToast("Document Uploaded! Verification Pending.");
+                showToast("Document Uploaded! Refreshing...");
                 setTimeout(() => location.reload(), 1500);
             } else {
                 showToast("Upload Failed", "error");
@@ -306,7 +295,6 @@ if (uploadForm) {
 
 // --- FETCH COURSES ---
 async function fetchCourses() {
-    // Use stored ID
     if(!currentInstId) return;
 
     try {
@@ -347,7 +335,6 @@ const courseForm = document.getElementById("courseForm");
 if (courseForm) {
     courseForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        // Use stored ID
         if(!currentInstId) return;
 
         const data = {
@@ -382,7 +369,6 @@ if (courseForm) {
 //   ADMIN DASHBOARD FUNCTIONALITY
 // ==========================================
 
-// 1. Load Pending List
 async function loadPendingRequests() {
     const listContainer = document.getElementById("pendingList");
     if(!listContainer) return;
@@ -406,12 +392,10 @@ async function loadPendingRequests() {
             listContainer.innerHTML = "<div style='text-align:center; padding:20px;'>Error fetching data.</div>";
         }
     } catch (err) {
-        console.error(err);
         listContainer.innerHTML = "<div style='text-align:center; padding:20px;'>Connection Error</div>";
     }
 }
 
-// 2. Render List
 function renderPendingList(requests) {
     const container = document.getElementById("pendingList");
     container.innerHTML = "";
@@ -429,7 +413,6 @@ function renderPendingList(requests) {
 
     requests.forEach(req => {
         const date = new Date(req.createdAt).toLocaleDateString();
-
         const card = document.createElement("div");
         card.className = "request-card";
         card.innerHTML = `
@@ -440,13 +423,12 @@ function renderPendingList(requests) {
                 <span>${date}</span>
             </div>
         `;
-
         card.onclick = () => selectRequest(req, card);
         container.appendChild(card);
     });
 }
 
-// 3. Select Request & View Details
+// Select Request & Generate HTML Dynamically (Removes dependency on <template>)
 async function selectRequest(req, cardElement) {
     currentSelectedId = req.id;
 
@@ -459,19 +441,51 @@ async function selectRequest(req, cardElement) {
     const detailPanel = document.getElementById("detailView");
     detailPanel.classList.add("visible");
 
-    // Clone Template
-    const template = document.getElementById("detailTemplate");
-    const content = template.content.cloneNode(true);
+    // Dynamic HTML Injection (Safer than cloning templates if HTML structure changes)
+    detailPanel.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+                <h2 style="color: var(--primary); margin-bottom: 5px;">${req.name}</h2>
+                <div class="badge" style="background: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 0.8rem; font-weight: 600;">PENDING APPROVAL</div>
+            </div>
+            <div style="text-align: right;">
+                <p style="font-size: 0.85rem; color: #64748b; margin:0;">Date: ${new Date(req.createdAt).toLocaleDateString()}</p>
+                <p style="font-size: 0.85rem; color: #64748b; margin:0;">Reg: ${req.registrationNumber}</p>
+            </div>
+        </div>
+        <hr>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 2rem;">
+            <div>
+                <h4 style="color: #475569; margin-bottom: 10px;">Contact Info</h4>
+                <p style="margin-bottom: 5px;"><strong>Email:</strong> ${req.email}</p>
+            </div>
+            <div>
+                <h4 style="color: #475569; margin-bottom: 10px;">Submitted Documents</h4>
+                <ul id="viewDocList" class="file-list">Loading docs...</ul>
+                <p id="viewNoDocs" class="hidden" style="color: red; font-size: 0.9rem;">⚠️ No documents uploaded.</p>
+            </div>
+        </div>
+        <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <h3 style="margin-top: 0;">Final Decision</h3>
+            <p style="font-size: 0.9rem; margin-bottom: 15px;">Review the documents above carefully before taking action.</p>
+            <div class="btn-group">
+                <button onclick="approveCurrent()" class="success">✅ Approve Institution</button>
+                <button onclick="showRejectBox()" class="danger">❌ Reject Institution</button>
+            </div>
+            <div id="rejectInputBox" class="hidden" style="margin-top: 15px; border-top: 1px solid #cbd5e1; padding-top: 15px;">
+                <label style="font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 5px; color: #b91c1c;">Reason for Rejection (Mandatory):</label>
+                <textarea id="rejectReasonText" placeholder="e.g., Documents are blurry, Incorrect Affiliation..." rows="3"></textarea>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button onclick="rejectCurrent()" class="danger">Confirm Rejection</button>
+                    <button onclick="hideRejectBox()" class="secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    `;
 
-    // Fill Basic Info
-    content.getElementById("viewName").textContent = req.name;
-    content.getElementById("viewEmail").textContent = req.email;
-    content.getElementById("viewReg").textContent = `Reg: ${req.registrationNumber}`;
-    content.getElementById("viewDate").textContent = `Date: ${new Date(req.createdAt).toLocaleDateString()}`;
-
-    // Fetch Documents for this specific ID
-    const docList = content.getElementById("viewDocList");
-    const noDocsMsg = content.getElementById("viewNoDocs");
+    // Fetch Documents
+    const docList = document.getElementById("viewDocList");
+    const noDocsMsg = document.getElementById("viewNoDocs");
 
     try {
         const res = await fetch(`${API_BASE}/institutions/${req.id}/documents`, {
@@ -479,6 +493,7 @@ async function selectRequest(req, cardElement) {
         });
         if (res.ok) {
             const docs = await res.json();
+            docList.innerHTML = "";
             if (docs.length > 0) {
                 docs.forEach(doc => {
                     const li = document.createElement("li");
@@ -494,12 +509,9 @@ async function selectRequest(req, cardElement) {
             }
         }
     } catch (err) { console.error(err); }
-
-    detailPanel.innerHTML = "";
-    detailPanel.appendChild(content);
 }
 
-// 4. Action: Approve
+// Action: Approve
 async function approveCurrent() {
     if (!currentSelectedId) return;
     if (!confirm("Are you sure you want to APPROVE this institution?")) return;
@@ -519,7 +531,7 @@ async function approveCurrent() {
     } catch (err) { showToast("Error connecting to server", "error"); }
 }
 
-// 5. Action: Reject
+// Action: Reject
 async function rejectCurrent() {
     if (!currentSelectedId) return;
 
@@ -544,7 +556,7 @@ async function rejectCurrent() {
     } catch (err) { showToast("Error connecting to server", "error"); }
 }
 
-// 6. UI Helpers for Admin
+// UI Helpers for Admin
 function resetView() {
     document.getElementById("detailView").classList.remove("visible");
     document.getElementById("emptyState").classList.add("visible");
@@ -552,15 +564,10 @@ function resetView() {
     loadPendingRequests(); // Refresh the list
 }
 
-function showRejectBox() {
-    document.getElementById("rejectInputBox").classList.remove("hidden");
-}
+function showRejectBox() { document.getElementById("rejectInputBox").classList.remove("hidden"); }
+function hideRejectBox() { document.getElementById("rejectInputBox").classList.add("hidden"); }
 
-function hideRejectBox() {
-    document.getElementById("rejectInputBox").classList.add("hidden");
-}
-
-// Helper for Admin Download
+// Admin Download
 async function downloadAdminDoc(instId, docId, fileName) {
     try {
         const res = await fetch(`${API_BASE}/institutions/${instId}/documents/${docId}`, { headers: getAuthHeaders() });

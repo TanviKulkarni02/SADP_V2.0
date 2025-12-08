@@ -135,18 +135,25 @@ public class InstitutionService {
             Institution institution = institutionRepository.findById(institutionId)
                     .orElseThrow(() -> new RuntimeException("Institution not found"));
 
-            // Create upload directory if missing
+            // ✅ If previously REJECTED, reset state
+            if (institution.getStatus() == Status.REJECTED) {
+                institution.setStatus(Status.PENDING);
+                institution.setRejectionReason(null);
+                institutionRepository.save(institution);
+            }
+
+            // ✅ Ensure upload directory exists
             File folder = new File(uploadDir);
             if (!folder.exists()) {
                 folder.mkdirs();
             }
 
-            // Save file to disk
+            // ✅ Save file
             String filePath = uploadDir + "/" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
             File savedFile = new File(filePath);
             file.transferTo(savedFile);
 
-            // Store path & file info in DB
+            // ✅ Save document record
             InstitutionDocument doc = new InstitutionDocument();
             doc.setInstitution(institution);
             doc.setFileName(file.getOriginalFilename());
@@ -158,6 +165,7 @@ public class InstitutionService {
             throw new RuntimeException("File upload failed");
         }
     }
+
     public InstitutionCourse addCourse(Long institutionId, InstitutionCourse course) {
 
         Institution institution = institutionRepository.findById(institutionId)

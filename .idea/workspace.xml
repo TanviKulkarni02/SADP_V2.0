@@ -6,14 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="d3828d7e-38de-4424-a9f3-370a788b2f68" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/institution_onboarding/src/main/java/com/example/institution_onboarding/controller/InstitutionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/institution_onboarding/src/main/java/com/example/institution_onboarding/controller/InstitutionController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/institution_onboarding/src/main/java/com/example/institution_onboarding/repository/InstitutionRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/institution_onboarding/src/main/java/com/example/institution_onboarding/repository/InstitutionRepository.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/institution_onboarding/src/main/java/com/example/institution_onboarding/service/InstitutionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/institution_onboarding/src/main/java/com/example/institution_onboarding/service/InstitutionService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/institution_onboarding/src/main/resources/static/institution.html" beforeDir="false" afterPath="$PROJECT_DIR$/institution_onboarding/src/main/resources/static/institution.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/institution_onboarding/src/main/resources/static/script.js" beforeDir="false" afterPath="$PROJECT_DIR$/institution_onboarding/src/main/resources/static/script.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/institution_onboarding/target/classes/com/example/institution_onboarding/controller/InstitutionController.class" beforeDir="false" afterPath="$PROJECT_DIR$/institution_onboarding/target/classes/com/example/institution_onboarding/controller/InstitutionController.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/institution_onboarding/target/classes/com/example/institution_onboarding/service/InstitutionService.class" beforeDir="false" afterPath="$PROJECT_DIR$/institution_onboarding/target/classes/com/example/institution_onboarding/service/InstitutionService.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/institution_onboarding/target/classes/static/script.js" beforeDir="false" afterPath="$PROJECT_DIR$/institution_onboarding/target/classes/static/script.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
