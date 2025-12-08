@@ -2,6 +2,9 @@
 
 const API_BASE = "http://localhost:8080/api";
 
+// --- GLOBAL STATE FOR ADMIN ---
+let currentSelectedId = null;
+
 // --- DEBUG HELPER ---
 function debugLog(msg, data = null) {
     if (data) console.log(`[DEBUG]: ${msg}`, data);
@@ -39,7 +42,12 @@ document.addEventListener("DOMContentLoaded", () => {
     toastContainer.id = "toast-container";
     document.body.appendChild(toastContainer);
 
-    // 3. Auto-fill ID
+    // 3. ADMIN: Check if we are on Admin Page -> Load Pending List
+    if (window.location.pathname.includes("admin.html")) {
+        loadPendingRequests();
+    }
+
+    // 4. INSTITUTION: Auto-fill ID
     const instInput = document.getElementById("instIdInput");
     if(instInput) {
         const savedId = localStorage.getItem("saved_inst_id");
@@ -169,14 +177,14 @@ async function loadInstitutionDashboard() {
         sessionStorage.setItem("currentInstId", instId);
 
         if (res.status === 404 || res.status === 500) {
-            showDashboard();
+            showDashboard(instId);
             renderState("NEW", null);
             return;
         }
 
         // --- REJECTION REASON DEBUGGING & PARSING ---
         const rawText = await res.text();
-        debugLog("RAW STATUS RESPONSE (Check Console!):", rawText); // <--- CHECK THIS IN CONSOLE
+        debugLog("RAW STATUS RESPONSE:", rawText);
 
         let status = "";
         let reason = null;
@@ -184,16 +192,12 @@ async function loadInstitutionDashboard() {
         try {
             const data = JSON.parse(rawText);
             if (typeof data === 'object' && data !== null) {
-                // If backend returns the Entity Object
                 status = data.status;
-                // Check both possible field names
                 reason = data.rejectionReason || data.reason;
             } else {
-                // If backend returns simple string "REJECTED"
                 status = data;
             }
         } catch (e) {
-            // Fallback: it's a plain text string
             status = rawText;
         }
 
@@ -250,8 +254,6 @@ function renderState(status, rejectionReasonText) {
             els.display.className = "status-card status-APPROVED";
         }
         if(els.course) els.course.classList.remove("hidden");
-
-        // TRIGGER COURSE FETCH HERE
         fetchCourses();
     }
     else if (status === "REJECTED") {
@@ -260,15 +262,13 @@ function renderState(status, rejectionReasonText) {
             els.display.textContent = "APPLICATION REJECTED";
             els.display.className = "status-card status-REJECTED";
         }
-
         if(els.reason) {
             els.reason.classList.remove("hidden");
             const reasonText = (rejectionReasonText && rejectionReasonText.trim() !== "")
                 ? rejectionReasonText
-                : "Admin did not provide specific details (or backend returned plain string).";
+                : "Admin did not provide specific details.";
             els.reason.innerHTML = `<strong>Reason:</strong> ${reasonText}<br><small style='opacity:0.8'>Please re-upload documents.</small>`;
         }
-
         if(els.upload) els.upload.classList.remove("hidden");
     }
 }
@@ -302,11 +302,9 @@ if (uploadForm) {
     });
 }
 
-// --- FETCH COURSES (FIXED) ---
+// --- FETCH COURSES ---
 async function fetchCourses() {
     const instId = sessionStorage.getItem("currentInstId");
-    debugLog(`Fetching courses for ID: ${instId}`);
-
     if(!instId) return;
 
     try {
@@ -314,20 +312,15 @@ async function fetchCourses() {
             headers: getAuthHeaders()
         });
 
-        debugLog(`Course Fetch Status: ${res.status}`);
-
         if(res.ok) {
             const courses = await res.json();
-            debugLog("Courses Received:", courses);
-
             const list = document.getElementById("courseList");
             const msg = document.getElementById("noCoursesMsg");
 
-            if(list) list.innerHTML = ""; // Clear existing
+            if(list) list.innerHTML = "";
 
             if(courses && courses.length > 0) {
                 if(msg) msg.classList.add("hidden");
-
                 courses.forEach(c => {
                     const li = document.createElement("li");
                     li.innerHTML = `
@@ -372,7 +365,7 @@ if (courseForm) {
             if (res.ok) {
                 showToast("Course Added!");
                 document.getElementById("courseForm").reset();
-                fetchCourses(); // Refresh list immediately
+                fetchCourses();
             } else {
                 showToast("Failed to add course", "error");
             }
@@ -382,35 +375,190 @@ if (courseForm) {
     });
 }
 
-// --- ADMIN DASHBOARD ---
-async function loadAdminView() {
-    const instId = document.getElementById("adminInstId").value;
-    if (!instId) return showToast("Enter ID", "error");
-    sessionStorage.setItem("adminTargetId", instId);
+// ==========================================
+//   ADMIN DASHBOARD FUNCTIONALITY (NEW)
+// ==========================================
+
+// 1. Load Pending List
+async function loadPendingRequests() {
+    const listContainer = document.getElementById("pendingList");
+    if(!listContainer) return;
+
+    listContainer.innerHTML = "<div style='text-align:center; padding:20px; color:#94a3b8;'>Loading requests...</div>";
 
     try {
-        const res = await fetch(`${API_BASE}/institutions/${instId}/documents`, { headers: getAuthHeaders() });
-        if (res.ok) {
-            const docs = await res.json();
-            const list = document.getElementById("docList");
-            list.innerHTML = "";
-            document.getElementById("adminContent").classList.remove("hidden");
+        const res = await fetch(`${API_BASE}/institutions/admin/pending`, {
+            headers: getAuthHeaders()
+        });
 
-            if (docs.length === 0) {
-                document.getElementById("noDocsMsg").classList.remove("hidden");
-            } else {
-                document.getElementById("noDocsMsg").classList.add("hidden");
-                docs.forEach(doc => {
-                    const li = document.createElement("li");
-                    li.innerHTML = `<span>${doc.fileName}</span> <button class="secondary" onclick="downloadDoc(${instId}, ${doc.id}, '${doc.fileName}')">Download</button>`;
-                    list.appendChild(li);
-                });
-            }
-        } else { showToast("Could not fetch documents", "error"); }
-    } catch (err) { showToast("Error fetching", "error"); }
+        if (res.status === 403) {
+            listContainer.innerHTML = "<div style='color:red; text-align:center; padding:20px;'>⛔ Unauthorized Access</div>";
+            return;
+        }
+
+        if (res.ok) {
+            const requests = await res.json();
+            renderPendingList(requests);
+        } else {
+            listContainer.innerHTML = "<div style='text-align:center; padding:20px;'>Error fetching data.</div>";
+        }
+    } catch (err) {
+        console.error(err);
+        listContainer.innerHTML = "<div style='text-align:center; padding:20px;'>Connection Error</div>";
+    }
 }
 
-async function downloadDoc(instId, docId, fileName) {
+// 2. Render List
+function renderPendingList(requests) {
+    const container = document.getElementById("pendingList");
+    container.innerHTML = "";
+
+    if (requests.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center; padding:40px 20px; color:#94a3b8;">
+                <div style="font-size:2rem; margin-bottom:10px;">🎉</div>
+                <strong>All caught up!</strong><br>No pending requests.
+            </div>`;
+        document.getElementById("detailView").classList.remove("visible");
+        document.getElementById("emptyState").classList.add("visible");
+        return;
+    }
+
+    requests.forEach(req => {
+        const date = new Date(req.createdAt).toLocaleDateString();
+
+        const card = document.createElement("div");
+        card.className = "request-card";
+        card.innerHTML = `
+            <div style="font-weight:600; color:#1e293b;">${req.name}</div>
+            <div class="meta-text">${req.email}</div>
+            <div class="meta-text" style="display:flex; justify-content:space-between;">
+                <span>${req.registrationNumber}</span>
+                <span>${date}</span>
+            </div>
+        `;
+
+        card.onclick = () => selectRequest(req, card);
+        container.appendChild(card);
+    });
+}
+
+// 3. Select Request & View Details
+async function selectRequest(req, cardElement) {
+    currentSelectedId = req.id;
+
+    // Highlight UI
+    document.querySelectorAll(".request-card").forEach(c => c.classList.remove("active"));
+    cardElement.classList.add("active");
+
+    // Show Panel
+    document.getElementById("emptyState").classList.remove("visible");
+    const detailPanel = document.getElementById("detailView");
+    detailPanel.classList.add("visible");
+
+    // Clone Template
+    const template = document.getElementById("detailTemplate");
+    const content = template.content.cloneNode(true);
+
+    // Fill Basic Info
+    content.getElementById("viewName").textContent = req.name;
+    content.getElementById("viewEmail").textContent = req.email;
+    content.getElementById("viewReg").textContent = `Reg: ${req.registrationNumber}`;
+    content.getElementById("viewDate").textContent = `Date: ${new Date(req.createdAt).toLocaleDateString()}`;
+
+    // Fetch Documents for this specific ID
+    const docList = content.getElementById("viewDocList");
+    const noDocsMsg = content.getElementById("viewNoDocs");
+
+    try {
+        const res = await fetch(`${API_BASE}/institutions/${req.id}/documents`, {
+            headers: getAuthHeaders()
+        });
+        if (res.ok) {
+            const docs = await res.json();
+            if (docs.length > 0) {
+                docs.forEach(doc => {
+                    const li = document.createElement("li");
+                    li.innerHTML = `
+                        <span>${doc.fileName}</span>
+                        <button class="secondary" style="padding:4px 8px; font-size:0.75rem;"
+                                onclick="downloadAdminDoc(${req.id}, ${doc.id}, '${doc.fileName}')">⬇ Download</button>
+                    `;
+                    docList.appendChild(li);
+                });
+            } else {
+                noDocsMsg.classList.remove("hidden");
+            }
+        }
+    } catch (err) { console.error(err); }
+
+    detailPanel.innerHTML = "";
+    detailPanel.appendChild(content);
+}
+
+// 4. Action: Approve
+async function approveCurrent() {
+    if (!currentSelectedId) return;
+    if (!confirm("Are you sure you want to APPROVE this institution?")) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/institutions/${currentSelectedId}/verify?approve=true`, {
+            method: "POST",
+            headers: getAuthHeaders()
+        });
+
+        if (res.ok) {
+            showToast("Institution Approved Successfully!");
+            resetView();
+        } else {
+            showToast("Approval Failed", "error");
+        }
+    } catch (err) { showToast("Error connecting to server", "error"); }
+}
+
+// 5. Action: Reject
+async function rejectCurrent() {
+    if (!currentSelectedId) return;
+
+    const reason = document.getElementById("rejectReasonText").value;
+    if (!reason || !reason.trim()) {
+        showToast("Rejection Reason is mandatory", "error");
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/institutions/${currentSelectedId}/verify?approve=false&reason=${encodeURIComponent(reason)}`, {
+            method: "POST",
+            headers: getAuthHeaders()
+        });
+
+        if (res.ok) {
+            showToast("Institution Rejected");
+            resetView();
+        } else {
+            showToast("Rejection Failed", "error");
+        }
+    } catch (err) { showToast("Error connecting to server", "error"); }
+}
+
+// 6. UI Helpers for Admin
+function resetView() {
+    document.getElementById("detailView").classList.remove("visible");
+    document.getElementById("emptyState").classList.add("visible");
+    currentSelectedId = null;
+    loadPendingRequests(); // Refresh the list
+}
+
+function showRejectBox() {
+    document.getElementById("rejectInputBox").classList.remove("hidden");
+}
+
+function hideRejectBox() {
+    document.getElementById("rejectInputBox").classList.add("hidden");
+}
+
+// Helper for Admin Download
+async function downloadAdminDoc(instId, docId, fileName) {
     try {
         const res = await fetch(`${API_BASE}/institutions/${instId}/documents/${docId}`, { headers: getAuthHeaders() });
         if(res.ok) {
@@ -420,23 +568,4 @@ async function downloadDoc(instId, docId, fileName) {
             document.body.appendChild(a); a.click(); a.remove();
         } else { showToast("Download failed", "error"); }
     } catch(e) { showToast("Download error", "error"); }
-}
-
-function toggleRejectBox() { document.getElementById("rejectBox").classList.toggle("hidden"); }
-
-async function verifyInstitution(approve) {
-    const instId = sessionStorage.getItem("adminTargetId");
-    let url = `${API_BASE}/institutions/${instId}/verify?approve=${approve}`;
-    if (!approve) {
-        const reason = document.getElementById("rejectReason").value;
-        if (!reason) return showToast("Enter rejection reason", "error");
-        url += `&reason=${encodeURIComponent(reason)}`;
-    }
-    try {
-        const res = await fetch(url, { method: "POST", headers: getAuthHeaders() });
-        if (res.ok) {
-            showToast(approve ? "Approved" : "Rejected");
-            setTimeout(() => location.reload(), 1500);
-        } else { showToast("Action failed", "error"); }
-    } catch (e) { showToast("Error", "error"); }
 }

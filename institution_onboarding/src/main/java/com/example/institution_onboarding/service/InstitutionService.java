@@ -176,6 +176,14 @@ public class InstitutionService {
         return courseRepository.findByInstitution(inst);
     }
 
+    // --------------------------------------------
+// ADMIN: Get all pending institution requests
+// --------------------------------------------
+    public List<Institution> getPendingInstitutions() {
+        return institutionRepository.findByStatus(Status.PENDING);
+    }
+
+
 
 
 }

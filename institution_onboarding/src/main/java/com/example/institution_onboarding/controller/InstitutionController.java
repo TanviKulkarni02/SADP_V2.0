@@ -199,4 +199,20 @@ public class InstitutionController {
 
         return service.getCourses(id);
     }
+
+    // ----------------------------------------
+// ADMIN: View all pending institutions
+// ----------------------------------------
+    @GetMapping("/admin/pending")
+    public List<Institution> getPendingInstitutions() {
+
+        String role = getRole();
+
+        if (!"ADMIN".equals(role)) {
+            throw new RuntimeException("Only ADMIN can view pending requests");
+        }
+
+        return service.getPendingInstitutions();
+    }
+
 }
